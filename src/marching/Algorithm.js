@@ -79,8 +79,9 @@ export class MarchingCubesSolver {
                             const val1 = cubeValues[vIndex1];
                             const val2 = cubeValues[vIndex2];
                             
-                            // Linear Interpolation
-                            const lerp = (this.isoValue - val1) / (val2 - val1);
+                            // Linear Interpolation (guard against degenerate edge)
+                            const denom = val2 - val1;
+                            const lerp = Math.abs(denom) < 1e-10 ? 0.5 : (this.isoValue - val1) / denom;
                             vertList[i] = new THREE.Vector3().lerpVectors(p1, p2, lerp);
                         }
                     }

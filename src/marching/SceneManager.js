@@ -22,7 +22,6 @@ export class SceneManager {
         this.renderer = new THREE.WebGLRenderer({ antialias: true });
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.container.appendChild(this.renderer.domElement);
-        console.log("Renderer initialized and appended");
 
         // Controls
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -35,6 +34,9 @@ export class SceneManager {
         const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
         directionalLight.position.set(10, 20, 10);
         this.scene.add(directionalLight);
+
+        // Accumulated triangle positions for step-by-step mesh (single draw call)
+        this._positions = [];
 
         // Groups for organization
         this.gridGroup = new THREE.Group();
@@ -85,6 +87,7 @@ export class SceneManager {
         this.meshGroup.clear();
         this.highlightGroup.clear();
         this.pointsGroup.clear();
+        this._positions = [];
     }
 
     setupGrid(resolution) {
@@ -107,23 +110,35 @@ export class SceneManager {
     setupPoints(resolution, solver) {
         this.pointsGroup.clear();
         const geometry = new THREE.SphereGeometry(0.1, 8, 8);
-        
-        // Use InstancedMesh for better performance if possible, but for small resolutions Group is fine
-        // Using basic mesh looping for simplicity
         const matInside = new THREE.MeshPhongMaterial({ color: 0xa3be8c }); // Nord 14 Green
         const matOutside = new THREE.MeshPhongMaterial({ color: 0xbf616a }); // Nord 11 Red
-        
+
+        const total = (resolution + 1) ** 3;
+        const meshInside = new THREE.InstancedMesh(geometry, matInside, total);
+        const meshOutside = new THREE.InstancedMesh(geometry, matOutside, total);
+        const dummy = new THREE.Object3D();
+        let iCount = 0;
+        let oCount = 0;
+
         for (let z = 0; z <= resolution; z++) {
             for (let y = 0; y <= resolution; y++) {
                 for (let x = 0; x <= resolution; x++) {
-                    const val = solver.getScalarValue(x, y, z);
-                    const mat = val > solver.isoValue ? matInside : matOutside;
-                    const sphere = new THREE.Mesh(geometry, mat);
-                    sphere.position.set(x, y, z);
-                    this.pointsGroup.add(sphere);
+                    dummy.position.set(x, y, z);
+                    dummy.updateMatrix();
+                    if (solver.getScalarValue(x, y, z) > solver.isoValue) {
+                        meshInside.setMatrixAt(iCount++, dummy.matrix);
+                    } else {
+                        meshOutside.setMatrixAt(oCount++, dummy.matrix);
+                    }
                 }
             }
         }
+
+        meshInside.count = iCount;
+        meshOutside.count = oCount;
+        meshInside.instanceMatrix.needsUpdate = true;
+        meshOutside.instanceMatrix.needsUpdate = true;
+        this.pointsGroup.add(meshInside, meshOutside);
     }
 
     highlightCell(x, y, z) {
@@ -135,26 +150,35 @@ export class SceneManager {
     }
 
     addTriangles(triangles) {
-        const geometry = new THREE.BufferGeometry();
-        const positions = [];
-        
         for (const tri of triangles) {
-            positions.push(tri[0].x, tri[0].y, tri[0].z);
-            positions.push(tri[1].x, tri[1].y, tri[1].z);
-            positions.push(tri[2].x, tri[2].y, tri[2].z);
+            this._positions.push(
+                tri[0].x, tri[0].y, tri[0].z,
+                tri[1].x, tri[1].y, tri[1].z,
+                tri[2].x, tri[2].y, tri[2].z,
+            );
         }
+        this._rebuildMesh();
+    }
 
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    _rebuildMesh() {
+        this.meshGroup.clear();
+        if (this._positions.length === 0) return;
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(this._positions, 3));
         geometry.computeVertexNormals();
-
-        const mesh = new THREE.Mesh(geometry, this.meshMaterial);
-        this.meshGroup.add(mesh);
+        this.meshGroup.add(new THREE.Mesh(geometry, this.meshMaterial));
     }
 
     updateFullMesh(triangles) {
-        this.meshGroup.clear();
-        if (triangles.length === 0) return;
-        this.addTriangles(triangles);
+        this._positions = [];
+        for (const tri of triangles) {
+            this._positions.push(
+                tri[0].x, tri[0].y, tri[0].z,
+                tri[1].x, tri[1].y, tri[1].z,
+                tri[2].x, tri[2].y, tri[2].z,
+            );
+        }
+        this._rebuildMesh();
     }
 
     animate() {

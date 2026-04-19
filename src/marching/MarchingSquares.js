@@ -87,7 +87,7 @@ export class MarchingSquares {
                 const pt0 = { cx: x + getInterp(v0, v1), cy: y };
                 const pt1 = { cx: x + 1, cy: y + getInterp(v1, v2) };
                 const pt2 = { cx: x + 1 - getInterp(v2, v3), cy: y + 1 };
-                const pt3 = { cx: x, cy: y + Math.abs(getInterp(v3, v0)) }; // fix direction for v3 to v0
+                const pt3 = { cx: x, cy: y + 1 - getInterp(v3, v0) }; // v3→v0 goes bottom→top, so cy = (y+1) - t
 
                 switch (state) {
                     case 1: lines.push([pt3, pt0]); break;

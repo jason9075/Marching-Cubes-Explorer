@@ -2,6 +2,10 @@ import { MarchingCubesSolver } from './marching/Algorithm.js?v=2';
 import { SceneManager } from './marching/SceneManager.js?v=2';
 import { MarchingSquares } from './marching/MarchingSquares.js?v=2';
 
+const DEFAULT_FOV = 75;
+const ANIM_SPEED_3D = 20; // ms per step
+const ANIM_SPEED_2D = 50; // ms per step
+
 class App {
     constructor() {
         this.container3D = document.getElementById('canvas-container');
@@ -54,7 +58,7 @@ class App {
             if (this.mode === '3D') {
                 // Map 0.1 - 5.0 to FOV (e.g., 100 to 20)
                 // 1.0 zoom -> 75 FOV
-                const newFov = 75 / zoomVal;
+                const newFov = DEFAULT_FOV / zoomVal;
                 this.sceneManager.camera.fov = newFov;
                 this.sceneManager.camera.updateProjectionMatrix();
             }
@@ -114,6 +118,7 @@ class App {
 
     reset() {
         this.isRunning = false;
+        this.playBtn.disabled = false;
         this.playBtn.querySelector('span').textContent = 'Play Simulation';
         
         if (this.mode === '3D') {
@@ -134,6 +139,11 @@ class App {
     }
 
     recompute() {
+        // Stop animation before recomputing to avoid stale generator state
+        this.isRunning = false;
+        this.playBtn.disabled = false;
+        this.playBtn.querySelector('span').textContent = 'Play Simulation';
+
         // Instant recompute for slider changes when not in animation mode
         if (this.mode === '3D') {
             const solver = new MarchingCubesSolver(this.resolution, this.isoValue);
@@ -176,17 +186,14 @@ class App {
     }
 
     step() {
-        if (!this.generator) {
-            console.log("No generator to step through");
-            return;
-        }
-        
+        if (!this.generator) return;
+
         const result = this.generator.next();
-        console.log("Step result:", result.done ? "DONE" : "MORE", result.value?.type);
 
         if (result.done) {
             this.isRunning = false;
-            this.playBtn.querySelector('span').textContent = 'Completed';
+            this.playBtn.disabled = true;
+            this.playBtn.querySelector('span').textContent = 'Completed — press Reset';
             if (this.mode === '3D') {
                 this.updateStats('COMPLETED', [this.resolution-1, this.resolution-1, this.resolution-1], this.triangles.length);
             } else {
@@ -230,7 +237,7 @@ class App {
     animate() {
         if (!this.isRunning) return;
         this.step();
-        setTimeout(() => this.animate(), this.mode === '3D' ? 20 : 50); // Control speed
+        setTimeout(() => this.animate(), this.mode === '3D' ? ANIM_SPEED_3D : ANIM_SPEED_2D);
     }
 
     updateStats(status, cell, count) {
