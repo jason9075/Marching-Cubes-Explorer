@@ -18,6 +18,7 @@
             just
             entr
             http-server
+            live-server
             typescript-language-server
             vscode-langservers-extracted # For HTML/CSS/JSON
           ];
@@ -25,7 +26,7 @@
           shellHook = ''
             echo "Entering Marching Cubes Development Environment"
             echo "Node version: $(node --version)"
-            echo "Available tools: just, entr, http-server"
+            echo "Available tools: just, entr, http-server, live-server"
           '';
         };
       });

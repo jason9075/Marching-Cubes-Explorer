@@ -1,9 +1,9 @@
 default:
     @just --list
 
-# 開發模式：啟動本地 server (假設使用 Vite)
+# 開發模式：啟動本地 server (使用 live-server 替代 Vite)
 dev:
-    npx vite
+    live-server --port 8080 .
 
 # 使用 http-server 啟動靜態伺服器
 serve:

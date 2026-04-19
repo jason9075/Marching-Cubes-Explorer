@@ -46,6 +46,20 @@ class App {
             this.reset();
         });
 
+        this.zoomSlider = document.getElementById('camera-zoom');
+        this.zoomDisplay = document.getElementById('camera-zoom-display');
+        this.zoomSlider.addEventListener('input', (e) => {
+            const zoomVal = parseFloat(e.target.value);
+            this.zoomDisplay.textContent = zoomVal.toFixed(1);
+            if (this.mode === '3D') {
+                // Map 0.1 - 5.0 to FOV (e.g., 100 to 20)
+                // 1.0 zoom -> 75 FOV
+                const newFov = 75 / zoomVal;
+                this.sceneManager.camera.fov = newFov;
+                this.sceneManager.camera.updateProjectionMatrix();
+            }
+        });
+
         // Buttons
         this.playBtn.addEventListener('click', () => this.togglePlay());
         document.getElementById('step-btn').addEventListener('click', () => this.step());
@@ -72,7 +86,9 @@ class App {
             }
         });
         document.getElementById('show-vertices').addEventListener('change', (e) => {
-            if (this.mode === '2D') {
+            if (this.mode === '3D') {
+                this.sceneManager.pointsGroup.visible = e.target.checked;
+            } else {
                 this.render2D();
             }
         });
@@ -81,12 +97,16 @@ class App {
     setMode(newMode) {
         if (this.mode === newMode) return;
         this.mode = newMode;
+        const zoomContainer = document.getElementById('zoom-control-container');
+        
         if (this.mode === '2D') {
             this.container3D.style.display = 'none';
             this.canvas2D.style.display = 'block';
+            if (zoomContainer) zoomContainer.style.display = 'none';
         } else {
             this.container3D.style.display = 'block';
             this.canvas2D.style.display = 'none';
+            if (zoomContainer) zoomContainer.style.display = 'block';
             this.sceneManager.resize();
         }
         this.reset();
@@ -100,6 +120,8 @@ class App {
             this.solver = new MarchingCubesSolver(this.resolution, this.isoValue);
             this.generator = this.solver.solveStepByStep();
             this.sceneManager.setupGrid(this.resolution);
+            this.sceneManager.setupPoints(this.resolution, this.solver);
+            this.sceneManager.pointsGroup.visible = document.getElementById('show-vertices').checked;
             this.triangles = [];
             this.updateStats('IDLE', [0, 0, 0], 0);
         } else {
@@ -126,6 +148,8 @@ class App {
                 result = gen.next();
             }
             
+            this.sceneManager.setupPoints(this.resolution, solver);
+            this.sceneManager.pointsGroup.visible = document.getElementById('show-vertices').checked;
             this.sceneManager.updateFullMesh(triangles);
             this.updateStats('COMPLETED', [this.resolution-1, this.resolution-1, this.resolution-1], triangles.length);
         } else {
