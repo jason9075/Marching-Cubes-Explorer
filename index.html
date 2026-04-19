@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marching Cubes Explorer - Nord Edition</title>
+    <script type="importmap">
+    {
+      "imports": {
+        "three": "./node_modules/three/build/three.module.js",
+        "three/examples/jsm/controls/OrbitControls": "./node_modules/three/examples/jsm/controls/OrbitControls.js"
+      }
+    }
+    </script>
+    <script>
+        window.addEventListener('error', function(e) {
+            alert('Error: ' + e.message + ' at ' + e.filename + ':' + e.lineno);
+        });
+        window.addEventListener('unhandledrejection', function(e) {
+            alert('Unhandled Rejection: ' + e.reason);
+        });
+    </script>
+    <link rel="stylesheet" href="./src/style.css">
+</head>
+<body>
+    <div id="app">
+        <aside>
+            <header>
+                <h1>Algorithm Visualizer</h1>
+                <p style="font-size: 0.75rem; color: var(--nord10);">Interactive Algorithm Explorer</p>
+                <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                    <button id="mode-2d-btn" style="flex: 1; padding: 0.5rem; font-size: 0.8rem;">2D Squares</button>
+                    <button id="mode-3d-btn" class="primary" style="flex: 1; padding: 0.5rem; font-size: 0.8rem;">3D Cubes</button>
+                </div>
+            </header>
+
+            <section class="control-group">
+                <h2>Simulation Controls</h2>
+                <div class="control-group">
+                    <label for="iso-value">Iso-Value (Threshold): <span id="iso-value-display">0.50</span></label>
+                    <input type="range" id="iso-value" min="0" max="1" step="0.01" value="0.5">
+                </div>
+                <div class="control-group">
+                    <label for="grid-res">Grid Resolution: <span id="grid-res-display">8</span></label>
+                    <input type="range" id="grid-res" min="2" max="32" step="1" value="8">
+                </div>
+            </section>
+
+            <section class="control-group">
+                <h2>Visualization</h2>
+                <button id="play-pause-btn" class="primary">
+                    <span>Play Simulation</span>
+                </button>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                    <button id="step-btn">Step Next</button>
+                    <button id="reset-btn">Reset</button>
+                </div>
+            </section>
+
+            <section class="control-group">
+                <h2>Display Options</h2>
+                <label class="legend-item">
+                    <input type="checkbox" id="show-grid" checked> Show Grid Lines
+                </label>
+                <label class="legend-item">
+                    <input type="checkbox" id="show-vertices"> Show Scalar Points
+                </label>
+            </section>
+
+            <section class="legend">
+                <h2>Legend</h2>
+                <div class="legend-item">
+                    <div class="color-box" style="background-color: var(--nord8);"></div>
+                    <span>Isosurface (Reconstructed Mesh)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="color-box" style="background-color: var(--nord10);"></div>
+                    <span>Active Cell (Processing)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="color-box" style="background-color: var(--nord14);"></div>
+                    <span>Point > Threshold</span>
+                </div>
+            </section>
+
+            <div class="stats" id="stats">
+                <div>Status: LOADING...</div>
+                <div>Current Cell: [-1, -1, -1]</div>
+                <div>Triangles: -1</div>
+            </div>
+        </aside>
+
+        <main style="position: relative;">
+            <div id="canvas-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></div>
+            <canvas id="canvas-2d" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; background: #2e3440;"></canvas>
+        </main>
+    </div>
+
+    <script type="module" src="./src/main.js?v=2"></script>
+</body>
+</html>
