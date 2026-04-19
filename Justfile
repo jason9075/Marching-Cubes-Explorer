@@ -1,14 +1,18 @@
 default:
     @just --list
 
-# 開發模式：啟動本地 server (使用 live-server 替代 Vite)
+# 開發模式：啟動 Vite server
 dev:
-    live-server --port 8080 .
+    npm run dev
 
-# 使用 http-server 啟動靜態伺服器
+# 構建專案
+build:
+    npm run build
+
+# 預覽構建結果
 serve:
-    http-server ./dist
+    npm run preview
 
-# 使用 entr 監控檔案變化 (範例：監控 src 下所有檔案)
+# 使用 entr 監控檔案變化 (Vite 內建監控，此處為備用)
 watch:
     find src/ -type f | entr -r just dev

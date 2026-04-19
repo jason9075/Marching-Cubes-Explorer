@@ -1,6 +1,8 @@
 # Marching Cubes Explorer
 
-An interactive, step-by-step visualizer for the **Marching Cubes** (3D) and **Marching Squares** (2D) algorithms, built with vanilla JavaScript and Three.js. No bundler required.
+An interactive, step-by-step visualizer for the **Marching Cubes** (3D) and **Marching Squares** (2D) algorithms, built with vanilla JavaScript and Three.js.
+
+### [🚀 Live Demo](https://jason9075.github.io/Marching-Cubes-Explorer/)
 
 ![Nord Edition](https://img.shields.io/badge/theme-Nord-5e81ac?style=flat-square)
 ![License](https://img.shields.io/badge/license-MIT-a3be8c?style=flat-square)
@@ -34,16 +36,16 @@ direnv allow
 ### Run
 
 ```bash
-just dev      # live-server with hot reload on port 8080
-just serve    # http-server (no live reload)
-just watch    # auto-restart dev server on src/ changes via entr
+npm run dev      # vite dev server
+npm run build    # build for production
+npm run preview  # preview production build
 ```
 
 Then open `http://localhost:8080` in your browser.
 
 ### Dependencies
 
-Runtime dependencies are loaded directly from `node_modules/` via a browser `importmap` — no build step needed.
+Runtime dependencies are bundled via **Vite** for the production build.
 
 ```bash
 # Install (bun or npm)
