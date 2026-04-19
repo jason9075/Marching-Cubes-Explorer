@@ -1,0 +1,96 @@
+
+## 1. 專案環境設定
+
+### `.gitignore`
+依照你的要求，排除 `direnv` 以及常見的 Node 產物。
+```text
+.direnv/
+node_modules/
+dist/
+.DS_Store
+```
+
+### `justfile` (配合 `entr` 進行自動化)
+利用 `entr` 監控檔案變化並觸發構建或重新整理。
+```makefile
+default:
+    @just --list
+
+# 開發模式：啟動本地 server (假設使用 Vite)
+dev:
+    npx vite
+
+# 使用 entr 監控檔案變化 (範例：監控 src 下所有檔案)
+watch:
+    find src/ -type f | entr -r just dev
+```
+
+---
+
+## 2. 核心架構設計 (Guideline)
+
+### A. 狀態機控制 (Animation Step Controller)
+為了實現「暫停/繼續」以及「單步執行」，你需要一個核心控制器來管理演算法的索引。
+
+* **Step 0**: 產生隨機/函式產生的純量場 (Scalar Field / Noise)。
+* **Step 1**: 設定閾值 (Isovalue)。
+* **Step 2**: 遍歷單元格 (Cell traversal)。
+* **Step 3**: 計算 Corner States (二進制編碼)。
+* **Step 4**: 查表 (Lookup Table) 獲取邊緣交點。
+* **Step 5**: 渲染幾何體。
+
+### B. 2D Marching Squares (教學起手式)
+在進入 3D 之前，先在 Canvas 或 Three.js 的 XY 平面上實作 2D 版本。這對使用者理解 **Lookup Table (LUT)** 最有幫助。
+* 視覺化重點：標出四個頂點的數值，並根據大於/小於閾值著色（黑/白）。
+* 線段繪製：顯示 16 種可能的狀態對應的線段。
+
+
+
+### C. 3D Marching Cubes (Three.js 核心)
+* **Grid Helper**: 繪製一個半透明的 3D 網格線框。
+* **Vertex Visualization**: 使用 `SphereGeometry` 顯示頂點，並用顏色深度代表該點的純量值。
+* **Lookup Table**: 準備好 256 種狀態的靜態陣列（或簡化後的 15 種基本型）。
+* **Geometry Update**: 
+    * 不要每一幀都 new Geometry。使用 `BufferGeometry` 並動態更新 `position` attribute。
+    * 在動畫暫停時，保持當前的幾何狀態供使用者旋轉視角觀察。
+
+---
+
+## 3. 動態演算法展示邏輯
+
+為了讓教學「可播放」，建議採用 **Generator (生成器)** 模式：
+
+```javascript
+// 簡化邏輯範例
+function* marchingCubeGenerator(grid) {
+  for (let z = 0; z < depth; z++) {
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        // 1. 強調目前的 Cell
+        yield { action: 'highlight_cell', coords: {x, y, z} };
+        
+        // 2. 計算 index
+        const index = calculateIndex(x, y, z);
+        yield { action: 'show_index', index };
+
+        // 3. 產生三角形
+        const triangles = getTrianglesFromTable(index);
+        yield { action: 'draw_mesh', data: triangles };
+      }
+    }
+  }
+}
+```
+
+### UI 控制層
+1.  **Play/Pause**: 切換一個 `isRunning` 的 Boolean。
+2.  **Speed Slider**: 控制 `setTimeout` 或 `requestAnimationFrame` 呼叫下一個 `yield` 的間隔。
+3.  **Step Forward/Back**: 手動呼叫 `generator.next()`。
+
+---
+
+
+* **LSP & Tooling**: 既然你在 NixOS 上使用 Neovim，建議在 `flake.nix` 中加入 `typescript-language-server` 和 `vscode-langservers-extracted` (用於 HTML/CSS)。
+* **Shaders**: 若要追求高效能與視覺效果，可以考慮將 Marching Cubes 的部分邏輯移至 **Compute Shader** (WebGPU) 或使用 **Vertex Shader** 進行位移，但在教學網頁中，JavaScript 端的逐筆運算反而更有利於展示細節。
+* **Debug Mode**: 實作一個「X-Ray」模式，按住鍵盤某鍵時，將不透明的 Mesh 轉為線框，並顯示內部的點雲數值。
+
