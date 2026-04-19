@@ -115,9 +115,12 @@ export class MarchingSquares {
         if (!this.width) this.resize();
         this.ctx.clearRect(0, 0, this.width, this.height);
 
+        // Use the smaller dimension so cells are always square, then center the grid
         const pad = 40;
-        const cellW = (this.width - pad * 2) / this.resolution;
-        const cellH = (this.height - pad * 2) / this.resolution;
+        const gridSize = Math.min(this.width - pad * 2, this.height - pad * 2);
+        const cell = gridSize / this.resolution;
+        const ox = (this.width - gridSize) / 2;
+        const oy = (this.height - gridSize) / 2;
 
         // Draw grid
         if (showGrid) {
@@ -125,19 +128,18 @@ export class MarchingSquares {
             this.ctx.lineWidth = 1;
             for (let y = 0; y <= this.resolution; y++) {
                 for (let x = 0; x <= this.resolution; x++) {
-                    const px = pad + x * cellW;
-                    const py = pad + y * cellH;
-                    
+                    const px = ox + x * cell;
+                    const py = oy + y * cell;
                     if (x < this.resolution) {
                         this.ctx.beginPath();
                         this.ctx.moveTo(px, py);
-                        this.ctx.lineTo(px + cellW, py);
+                        this.ctx.lineTo(px + cell, py);
                         this.ctx.stroke();
                     }
                     if (y < this.resolution) {
                         this.ctx.beginPath();
                         this.ctx.moveTo(px, py);
-                        this.ctx.lineTo(px, py + cellH);
+                        this.ctx.lineTo(px, py + cell);
                         this.ctx.stroke();
                     }
                 }
@@ -147,24 +149,19 @@ export class MarchingSquares {
         // Draw active cell highlight
         if (activeCell) {
             this.ctx.fillStyle = 'rgba(235, 203, 139, 0.3)'; // Nord 13
-            this.ctx.fillRect(pad + activeCell.x * cellW, pad + activeCell.y * cellH, cellW, cellH);
+            this.ctx.fillRect(ox + activeCell.x * cell, oy + activeCell.y * cell, cell, cell);
             this.ctx.strokeStyle = '#ebcb8b';
             this.ctx.lineWidth = 2;
-            this.ctx.strokeRect(pad + activeCell.x * cellW, pad + activeCell.y * cellH, cellW, cellH);
+            this.ctx.strokeRect(ox + activeCell.x * cell, oy + activeCell.y * cell, cell, cell);
         }
 
-        // Draw lines
+        // Draw isosurface lines
         this.ctx.strokeStyle = '#88c0d0'; // Nord 8
         this.ctx.lineWidth = 3;
         for (const line of lines) {
-            const p1x = pad + line[0].cx * cellW;
-            const p1y = pad + line[0].cy * cellH;
-            const p2x = pad + line[1].cx * cellW;
-            const p2y = pad + line[1].cy * cellH;
-            
             this.ctx.beginPath();
-            this.ctx.moveTo(p1x, p1y);
-            this.ctx.lineTo(p2x, p2y);
+            this.ctx.moveTo(ox + line[0].cx * cell, oy + line[0].cy * cell);
+            this.ctx.lineTo(ox + line[1].cx * cell, oy + line[1].cy * cell);
             this.ctx.stroke();
         }
 
@@ -172,23 +169,11 @@ export class MarchingSquares {
         if (showPoints) {
             for (let y = 0; y <= this.resolution; y++) {
                 for (let x = 0; x <= this.resolution; x++) {
-                    const px = pad + x * cellW;
-                    const py = pad + y * cellH;
                     const val = this.scalarField[y][x];
-
                     this.ctx.beginPath();
-                    this.ctx.arc(px, py, 4, 0, Math.PI * 2);
-                    if (val > this.isoValue) {
-                        this.ctx.fillStyle = '#a3be8c'; // Nord 14
-                    } else {
-                        this.ctx.fillStyle = '#bf616a'; // Nord 11
-                    }
+                    this.ctx.arc(ox + x * cell, oy + y * cell, 4, 0, Math.PI * 2);
+                    this.ctx.fillStyle = val > this.isoValue ? '#a3be8c' : '#bf616a'; // Nord 14 / 11
                     this.ctx.fill();
-
-                    // Optional: draw values
-                    // this.ctx.fillStyle = '#d8dee9';
-                    // this.ctx.font = '10px Arial';
-                    // this.ctx.fillText(val.toFixed(2), px + 6, py - 6);
                 }
             }
         }

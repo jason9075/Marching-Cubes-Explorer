@@ -3,8 +3,12 @@ import { SceneManager } from './marching/SceneManager.js?v=2';
 import { MarchingSquares } from './marching/MarchingSquares.js?v=2';
 
 const DEFAULT_FOV = 75;
-const ANIM_SPEED_3D = 20; // ms per step
-const ANIM_SPEED_2D = 50; // ms per step
+const ANIM_SPEED_3D = 20;       // ms per step (normal mode)
+const ANIM_SPEED_2D = 50;       // ms per step (normal mode)
+const ANIM_SPEED_FAST = 3;      // ms for empty cells in 2D (auto-speed mode)
+const ANIM_SPEED_BATCH_3D = 80; // max empty cells to batch per tick in 3D auto-speed
+const ANIM_SPEED_SLOW_3D = 120; // ms for isosurface cells in 3D (auto-speed mode)
+const ANIM_SPEED_SLOW_2D = 150; // ms for isosurface cells in 2D (auto-speed mode)
 
 class App {
     constructor() {
@@ -13,13 +17,17 @@ class App {
         
         this.mode = '3D'; // '2D' or '3D'
         this.sceneManager = new SceneManager(this.container3D);
-        
+
         this.resolution = 8;
         this.isoValue = 0.5;
         this.isRunning = false;
         this.solver = null;
         this.generator = null;
-        
+
+        // Auto-speed state
+        this._autoSpeed = false;
+        this._lastStepWasActive = false;
+
         // 2D state
         this.lines2D = [];
 
@@ -95,6 +103,10 @@ class App {
             } else {
                 this.render2D();
             }
+        });
+
+        document.getElementById('auto-speed').addEventListener('change', (e) => {
+            this._autoSpeed = e.target.checked;
         });
     }
 
@@ -208,21 +220,25 @@ class App {
             if (stepVal.type === 'cell_start') {
                 this.sceneManager.highlightCell(stepVal.pos.x, stepVal.pos.y, stepVal.pos.z);
                 this.updateStats('PROCESSING', [stepVal.pos.x, stepVal.pos.y, stepVal.pos.z], this.triangles.length);
+                this._lastStepWasActive = false;
             } else if (stepVal.type === 'cell_complete') {
                 this.triangles = this.triangles.concat(stepVal.triangles);
                 this.sceneManager.addTriangles(stepVal.triangles);
                 this.updateStats('PROCESSING', [stepVal.pos.x, stepVal.pos.y, stepVal.pos.z], this.triangles.length);
+                this._lastStepWasActive = stepVal.triangles.length > 0;
             }
         } else { // 2D Mode
             if (stepVal.type === 'cell_start') {
                 this.render2D(stepVal.pos);
                 this.updateStats('PROCESSING', [stepVal.pos.x, stepVal.pos.y], this.lines2D.length);
+                this._lastStepWasActive = false;
             } else if (stepVal.type === 'cell_complete') {
                 if (stepVal.lines && stepVal.lines.length > 0) {
                     this.lines2D = this.lines2D.concat(stepVal.lines);
                 }
                 this.render2D(stepVal.pos);
                 this.updateStats('PROCESSING', [stepVal.pos.x, stepVal.pos.y], this.lines2D.length);
+                this._lastStepWasActive = stepVal.lines && stepVal.lines.length > 0;
             }
         }
     }
@@ -236,8 +252,30 @@ class App {
 
     animate() {
         if (!this.isRunning) return;
-        this.step();
-        setTimeout(() => this.animate(), this.mode === '3D' ? ANIM_SPEED_3D : ANIM_SPEED_2D);
+
+        if (this._autoSpeed && this.mode === '3D') {
+            // Batch-step through empty 3D cells so blank space is traversed near-instantly.
+            // Stop the batch as soon as we hit an active (isosurface) cell or the generator ends.
+            for (let i = 0; i < ANIM_SPEED_BATCH_3D && this.isRunning && !this._lastStepWasActive; i++) {
+                this.step();
+            }
+            // If not done yet, do one more step to capture the active cell itself
+            if (this.isRunning && !this._lastStepWasActive) this.step();
+        } else {
+            this.step();
+        }
+
+        let delay;
+        if (this._autoSpeed) {
+            if (this._lastStepWasActive) {
+                delay = this.mode === '3D' ? ANIM_SPEED_SLOW_3D : ANIM_SPEED_SLOW_2D;
+            } else {
+                delay = ANIM_SPEED_FAST; // 2D empty cells
+            }
+        } else {
+            delay = this.mode === '3D' ? ANIM_SPEED_3D : ANIM_SPEED_2D;
+        }
+        setTimeout(() => this.animate(), delay);
     }
 
     updateStats(status, cell, count) {
