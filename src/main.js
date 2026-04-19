@@ -24,6 +24,9 @@ class App {
         this.solver = null;
         this.generator = null;
 
+        // Scalar field type
+        this.fieldType = 'float'; // 'float' | 'binary'
+
         // Auto-speed state
         this._autoSpeed = false;
         this._lastStepWasActive = false;
@@ -50,6 +53,9 @@ class App {
             this.isoValue = parseFloat(e.target.value);
             this.isoDisplay.textContent = this.isoValue.toFixed(2);
             if (!this.isRunning) this.recompute();
+        });
+        this.isoSlider.addEventListener('change', () => {
+            if (!this.isRunning) this.reset();
         });
 
         this.resSlider.addEventListener('input', (e) => {
@@ -108,6 +114,22 @@ class App {
         document.getElementById('auto-speed').addEventListener('change', (e) => {
             this._autoSpeed = e.target.checked;
         });
+
+        document.querySelectorAll('input[name="field-type"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                this.fieldType = e.target.value;
+                this.reset();
+            });
+        });
+
+        // 2D hover tooltip — listeners added once, delegate to current solver2D
+        this.canvas2D.addEventListener('mousemove', (e) => {
+            if (this.mode !== '2D' || !this.solver2D) return;
+            this.solver2D.handleHover(e);
+        });
+        this.canvas2D.addEventListener('mouseleave', () => {
+            document.getElementById('tooltip-2d').style.display = 'none';
+        });
     }
 
     setMode(newMode) {
@@ -123,6 +145,7 @@ class App {
             this.container3D.style.display = 'block';
             this.canvas2D.style.display = 'none';
             if (zoomContainer) zoomContainer.style.display = 'block';
+            document.getElementById('tooltip-2d').style.display = 'none';
             this.sceneManager.resize();
         }
         this.reset();
@@ -134,7 +157,7 @@ class App {
         this.playBtn.querySelector('span').textContent = 'Play Simulation';
         
         if (this.mode === '3D') {
-            this.solver = new MarchingCubesSolver(this.resolution, this.isoValue);
+            this.solver = new MarchingCubesSolver(this.resolution, this.isoValue, this.fieldType);
             this.generator = this.solver.solveStepByStep();
             this.sceneManager.setupGrid(this.resolution);
             this.sceneManager.setupPoints(this.resolution, this.solver);
@@ -142,7 +165,7 @@ class App {
             this.triangles = [];
             this.updateStats('IDLE', [0, 0, 0], 0);
         } else {
-            this.solver2D = new MarchingSquares(this.canvas2D, this.resolution, this.isoValue);
+            this.solver2D = new MarchingSquares(this.canvas2D, this.resolution, this.isoValue, this.fieldType);
             this.generator = this.solver2D.solveStepByStep();
             this.lines2D = [];
             this.render2D();
@@ -158,7 +181,7 @@ class App {
 
         // Instant recompute for slider changes when not in animation mode
         if (this.mode === '3D') {
-            const solver = new MarchingCubesSolver(this.resolution, this.isoValue);
+            const solver = new MarchingCubesSolver(this.resolution, this.isoValue, this.fieldType);
             const gen = solver.solveStepByStep();
             let result = gen.next();
             let triangles = [];
@@ -253,16 +276,12 @@ class App {
     animate() {
         if (!this.isRunning) return;
 
+        // Always advance at least one step, then batch more empty 3D cells if auto-speed is on
+        this.step();
         if (this._autoSpeed && this.mode === '3D') {
-            // Batch-step through empty 3D cells so blank space is traversed near-instantly.
-            // Stop the batch as soon as we hit an active (isosurface) cell or the generator ends.
-            for (let i = 0; i < ANIM_SPEED_BATCH_3D && this.isRunning && !this._lastStepWasActive; i++) {
+            for (let i = 1; i < ANIM_SPEED_BATCH_3D && this.isRunning && !this._lastStepWasActive; i++) {
                 this.step();
             }
-            // If not done yet, do one more step to capture the active cell itself
-            if (this.isRunning && !this._lastStepWasActive) this.step();
-        } else {
-            this.step();
         }
 
         let delay;

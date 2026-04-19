@@ -1,10 +1,23 @@
+// Gradient: Nord 9 (#81a1c1) → Nord 13 (#ebcb8b) → Nord 14 (#a3be8c)
+function scalarToCSS(t) {
+    const lc = (a, b, s) => Math.round(a + (b - a) * s);
+    if (t <= 0.5) {
+        const s = t * 2;
+        return `rgb(${lc(0x81,0xeb,s)},${lc(0xa1,0xcb,s)},${lc(0xc1,0x8b,s)})`;
+    }
+    const s = (t - 0.5) * 2;
+    return `rgb(${lc(0xeb,0xa3,s)},${lc(0xcb,0xbe,s)},${lc(0x8b,0x8c,s)})`;
+}
+
 export class MarchingSquares {
-    constructor(canvas, resolution, isoValue) {
+    constructor(canvas, resolution, isoValue, fieldType = 'float') {
         this.canvas = canvas;
         this.ctx = canvas.getContext('2d');
         this.resolution = resolution;
         this.isoValue = isoValue;
+        this.fieldType = fieldType; // 'float' | 'binary'
         this.scalarField = [];
+        this._drawMetrics = null; // set by draw(), used by handleHover()
         this.generateScalarField();
         this.resize();
     }
@@ -31,6 +44,9 @@ export class MarchingSquares {
             });
         }
 
+        // Compute raw metaball values and track range
+        const raw = [];
+        let minVal = Infinity, maxVal = -Infinity;
         for (let y = 0; y <= this.resolution; y++) {
             const row = [];
             for (let x = 0; x <= this.resolution; x++) {
@@ -40,12 +56,23 @@ export class MarchingSquares {
                 for (const c of centers) {
                     const dx = nx - c.x;
                     const dy = ny - c.y;
-                    const d2 = dx * dx + dy * dy;
-                    val += (c.radius * c.radius) / (d2 + 0.01);
+                    val += (c.radius * c.radius) / (dx * dx + dy * dy + 0.01);
                 }
-                row.push(val / numCenters);
+                const v = val / numCenters;
+                row.push(v);
+                if (v < minVal) minVal = v;
+                if (v > maxVal) maxVal = v;
             }
-            this.scalarField.push(row);
+            raw.push(row);
+        }
+
+        // Normalize to [0, 1]; binary snaps at 0.5 of the normalized range
+        const range = maxVal - minVal || 1;
+        for (const row of raw) {
+            this.scalarField.push(row.map(v => {
+                const t = (v - minVal) / range;
+                return this.fieldType === 'binary' ? (t > 0.5 ? 1.0 : 0.0) : t;
+            }));
         }
     }
 
@@ -165,17 +192,56 @@ export class MarchingSquares {
             this.ctx.stroke();
         }
 
-        // Draw scalar points
+        // Draw scalar points with gradient color based on normalized value
         if (showPoints) {
+            let minVal = Infinity, maxVal = -Infinity;
             for (let y = 0; y <= this.resolution; y++) {
                 for (let x = 0; x <= this.resolution; x++) {
-                    const val = this.scalarField[y][x];
+                    const v = this.scalarField[y][x];
+                    if (v < minVal) minVal = v;
+                    if (v > maxVal) maxVal = v;
+                }
+            }
+            const range = maxVal - minVal || 1;
+
+            for (let y = 0; y <= this.resolution; y++) {
+                for (let x = 0; x <= this.resolution; x++) {
+                    const t = (this.scalarField[y][x] - minVal) / range;
                     this.ctx.beginPath();
                     this.ctx.arc(ox + x * cell, oy + y * cell, 4, 0, Math.PI * 2);
-                    this.ctx.fillStyle = val > this.isoValue ? '#a3be8c' : '#bf616a'; // Nord 14 / 11
+                    this.ctx.fillStyle = scalarToCSS(t);
                     this.ctx.fill();
                 }
             }
         }
+
+        this._drawMetrics = { ox, oy, cell };
+    }
+
+    /** Called by main.js on canvas mousemove events. */
+    handleHover(e) {
+        const tooltip = document.getElementById('tooltip-2d');
+        if (!this._drawMetrics) { tooltip.style.display = 'none'; return; }
+        const { ox, oy, cell } = this._drawMetrics;
+
+        const rect = this.canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+
+        const gx = Math.round((mx - ox) / cell);
+        const gy = Math.round((my - oy) / cell);
+
+        if (gx >= 0 && gx <= this.resolution && gy >= 0 && gy <= this.resolution) {
+            const dist = Math.hypot(mx - (ox + gx * cell), my - (oy + gy * cell));
+            if (dist < cell * 0.4) {
+                const val = this.scalarField[gy][gx];
+                tooltip.textContent = `[${gx}, ${gy}] = ${val.toFixed(3)}`;
+                tooltip.style.display = 'block';
+                tooltip.style.left = `${e.clientX + 14}px`;
+                tooltip.style.top = `${e.clientY - 28}px`;
+                return;
+            }
+        }
+        tooltip.style.display = 'none';
     }
 }

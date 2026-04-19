@@ -28,6 +28,7 @@
     <link rel="stylesheet" href="./src/style.css">
 </head>
 <body>
+    <div id="tooltip-2d" style="display:none; position:fixed; background:#3b4252; color:#d8dee9; padding:3px 8px; border-radius:4px; font-size:0.78rem; font-family:monospace; pointer-events:none; z-index:200; white-space:nowrap;"></div>
     <div id="error-banner" style="display:none; position:fixed; top:0; left:0; right:0; background:var(--nord11,#bf616a); color:#eceff4; padding:0.6rem 1rem; font-family:monospace; font-size:0.85rem; z-index:999; align-items:center; gap:1rem;">
         <span id="error-message"></span>
         <button onclick="document.getElementById('error-banner').style.display='none'" style="margin-left:auto; background:transparent; border:1px solid #eceff4; color:#eceff4; cursor:pointer; padding:0.2rem 0.6rem;">✕</button>
@@ -52,6 +53,15 @@
                 <div class="control-group">
                     <label for="grid-res">Grid Resolution: <span id="grid-res-display">8</span></label>
                     <input type="range" id="grid-res" min="2" max="32" step="1" value="8">
+                </div>
+                <div class="control-group">
+                    <label>Scalar Field:</label>
+                    <label class="legend-item">
+                        <input type="radio" name="field-type" value="float" checked> Continuous Float
+                    </label>
+                    <label class="legend-item">
+                        <input type="radio" name="field-type" value="binary"> Binary (0 / 1)
+                    </label>
                 </div>
             </section>
 

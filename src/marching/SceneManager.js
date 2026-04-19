@@ -110,35 +110,51 @@ export class SceneManager {
     setupPoints(resolution, solver) {
         this.pointsGroup.clear();
         const geometry = new THREE.SphereGeometry(0.1, 8, 8);
-        const matInside = new THREE.MeshPhongMaterial({ color: 0xa3be8c }); // Nord 14 Green
-        const matOutside = new THREE.MeshPhongMaterial({ color: 0xbf616a }); // Nord 11 Red
-
+        const material = new THREE.MeshPhongMaterial();
         const total = (resolution + 1) ** 3;
-        const meshInside = new THREE.InstancedMesh(geometry, matInside, total);
-        const meshOutside = new THREE.InstancedMesh(geometry, matOutside, total);
-        const dummy = new THREE.Object3D();
-        let iCount = 0;
-        let oCount = 0;
+        const mesh = new THREE.InstancedMesh(geometry, material, total);
 
+        // Compute value range for normalization
+        let minVal = Infinity, maxVal = -Infinity;
         for (let z = 0; z <= resolution; z++) {
             for (let y = 0; y <= resolution; y++) {
                 for (let x = 0; x <= resolution; x++) {
+                    const v = solver.getScalarValue(x, y, z);
+                    if (v < minVal) minVal = v;
+                    if (v > maxVal) maxVal = v;
+                }
+            }
+        }
+        const range = maxVal - minVal || 1;
+
+        // Nord 9 (#81a1c1) → Nord 13 (#ebcb8b) → Nord 11 (#bf616a)
+        const colorA = new THREE.Color(0x81a1c1);
+        const colorB = new THREE.Color(0xebcb8b);
+        const colorC = new THREE.Color(0xa3be8c); // Nord 14 - green (high value)
+        const dummy = new THREE.Object3D();
+        const color = new THREE.Color();
+
+        for (let z = 0, idx = 0; z <= resolution; z++) {
+            for (let y = 0; y <= resolution; y++) {
+                for (let x = 0; x <= resolution; x++, idx++) {
                     dummy.position.set(x, y, z);
                     dummy.updateMatrix();
-                    if (solver.getScalarValue(x, y, z) > solver.isoValue) {
-                        meshInside.setMatrixAt(iCount++, dummy.matrix);
+                    mesh.setMatrixAt(idx, dummy.matrix);
+
+                    const t = (solver.getScalarValue(x, y, z) - minVal) / range;
+                    if (t <= 0.5) {
+                        color.copy(colorA).lerp(colorB, t * 2);
                     } else {
-                        meshOutside.setMatrixAt(oCount++, dummy.matrix);
+                        color.copy(colorB).lerp(colorC, (t - 0.5) * 2);
                     }
+                    mesh.setColorAt(idx, color);
                 }
             }
         }
 
-        meshInside.count = iCount;
-        meshOutside.count = oCount;
-        meshInside.instanceMatrix.needsUpdate = true;
-        meshOutside.instanceMatrix.needsUpdate = true;
-        this.pointsGroup.add(meshInside, meshOutside);
+        mesh.instanceMatrix.needsUpdate = true;
+        mesh.instanceColor.needsUpdate = true;
+        this.pointsGroup.add(mesh);
     }
 
     highlightCell(x, y, z) {

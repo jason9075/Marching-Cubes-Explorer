@@ -2,31 +2,45 @@ import * as THREE from 'three';
 import { EDGE_TABLE, TRI_TABLE, VERTEX_OFFSETS, EDGE_V_MAP } from './lut2.js';
 
 export class MarchingCubesSolver {
-    constructor(resolution = 8, isoValue = 0.5) {
+    constructor(resolution = 8, isoValue = 0.5, fieldType = 'float') {
         this.resolution = resolution;
         this.isoValue = isoValue;
+        this.fieldType = fieldType; // 'float' | 'binary'
         this.grid = this.generateScalarField();
     }
 
     generateScalarField() {
         const size = this.resolution + 1;
         const grid = new Float32Array(size * size * size);
-        
+
         for (let z = 0; z < size; z++) {
             for (let y = 0; y < size; y++) {
                 for (let x = 0; x < size; x++) {
                     const idx = x + y * size + z * size * size;
-                    
-                    // Simple radial field (sphere) for the demo
                     const dx = (x / this.resolution) - 0.5;
                     const dy = (y / this.resolution) - 0.5;
                     const dz = (z / this.resolution) - 0.5;
                     const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-                    
-                    grid[idx] = 1.0 - (dist * 2.0); // 1.0 at center, 0.0 at edge
+                    grid[idx] = this.fieldType === 'binary'
+                        ? (dist < 0.5 ? 1.0 : 0.0)
+                        : 1.0 - dist * 2.0; // raw; will be normalized below
                 }
             }
         }
+
+        // Normalize float field to [0, 1]
+        if (this.fieldType === 'float') {
+            let minVal = Infinity, maxVal = -Infinity;
+            for (let i = 0; i < grid.length; i++) {
+                if (grid[i] < minVal) minVal = grid[i];
+                if (grid[i] > maxVal) maxVal = grid[i];
+            }
+            const range = maxVal - minVal || 1;
+            for (let i = 0; i < grid.length; i++) {
+                grid[i] = (grid[i] - minVal) / range;
+            }
+        }
+
         return grid;
     }
 
